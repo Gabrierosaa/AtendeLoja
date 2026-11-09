@@ -1,0 +1,98 @@
+name: atendeloja
+
+# Uso (a partir da raiz do repositório):
+#   cp .env.example .env
+#   docker compose -f docker/docker-compose.yml --env-file .env up --build
+# Padrão: só o SQL Server. api/worker/web (precisam de Program.cs e do projeto Angular): --profile app.
+# Opcionais: --profile ollama / --profile observabilidade.
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SQLSERVER_SA_PASSWORD:?Defina SQLSERVER_SA_PASSWORD no .env}
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: >
+        /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa
+        -P "$$MSSQL_SA_PASSWORD" -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  api:
+    profiles: ["app"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Padrao: Server=sqlserver,1433;Database=AtendeLoja;User Id=sa;Password=${SQLSERVER_SA_PASSWORD};TrustServerCertificate=True
+      Jwt__Secret: ${JWT_SECRET:?Defina JWT_SECRET no .env}
+      Ia__Provedor: ${AI_PROVIDER:-ollama}
+      Ia__ApiKey: ${AI_API_KEY:-}
+      Ia__ModeloChat: ${AI_CHAT_MODEL:-}
+      Ia__ModeloEmbedding: ${AI_EMBEDDING_MODEL:-}
+      Ia__OllamaUrl: http://ollama:11434
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+    ports:
+      - "8080:8080"
+
+  worker:
+    profiles: ["app"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      DOTNET_ENVIRONMENT: Development
+      ConnectionStrings__Padrao: Server=sqlserver,1433;Database=AtendeLoja;User Id=sa;Password=${SQLSERVER_SA_PASSWORD};TrustServerCertificate=True
+      Ia__Provedor: ${AI_PROVIDER:-ollama}
+      Ia__ApiKey: ${AI_API_KEY:-}
+      Ia__ModeloChat: ${AI_CHAT_MODEL:-}
+      Ia__ModeloEmbedding: ${AI_EMBEDDING_MODEL:-}
+      Ia__OllamaUrl: http://ollama:11434
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+
+  web:
+    profiles: ["app"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+    depends_on:
+      - api
+    ports:
+      - "4200:80"
+
+  # --- Opcionais ---------------------------------------------------------
+  ollama:
+    profiles: ["ollama"]
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+
+  jaeger:
+    profiles: ["observabilidade"]
+    image: jaegertracing/all-in-one:1.62.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"   # UI
+      - "4317:4317"     # OTLP gRPC
+
+volumes:
+  sqlserver-data:
+  ollama-data:
