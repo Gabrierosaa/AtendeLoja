@@ -4,8 +4,20 @@ Assistente de atendimento para comércios locais. Responde clientes sobre horár
 
 Projeto de aprendizado e portfólio, com foco em um RAG que se avalia e se observa.
 
-> **Status:** planejamento / esqueleto. A estrutura está pronta; o código está sendo implementado fase a fase (ver [Roadmap](#roadmap)).
+> **Status:** 🚧 em construção (Fase 0). A solução .NET, a estrutura de pastas e o ambiente Docker estão prontos; a API, o worker e o Angular ainda vão ser implementados fase a fase (ver [Roadmap](#roadmap)).
 > Detalhes completos em [`docs/AtendeLoja_Documento_Tecnico.pdf`](docs/AtendeLoja_Documento_Tecnico.pdf).
+
+## O que ele faz (exemplo)
+
+| Cliente pergunta | Como é respondido |
+|------------------|-------------------|
+| "Quanto sai a coxinha?" | Preço lido do banco, em frase fixa. Sem IA nos valores. |
+| "Vocês trocam produto?" | Busca nos documentos da loja (RAG), com citação do documento. |
+| "Tem o produto X?" (não cadastrado) | "Não encontrei" e encaminhamento para uma pessoa. |
+
+## Por que o projeto existe
+
+É um projeto de aprendizado. Quero praticar, num sistema pequeno mas completo: arquitetura em camadas, RAG com avaliação mensurável, isolamento entre lojas, observabilidade e testes de integração.
 
 ## Problema
 
@@ -151,26 +163,39 @@ Serilog (JSON), traces OpenTelemetry por etapa (`chat.request`, `chat.route`, `r
 
 ## Como rodar
 
-> A preencher conforme as fases forem concluídas.
+Pré-requisitos: [Docker Desktop](https://www.docker.com/products/docker-desktop/) e, para desenvolver, o SDK do .NET 10.
+
+1. Crie o `.env` e preencha `SQLSERVER_SA_PASSWORD` e `JWT_SECRET` (o arquivo não vai para o Git):
 
 ```bash
 cp .env.example .env
-docker compose -f docker/docker-compose.yml up
 ```
 
-Serviços previstos: `api` (8080), `worker`, `web` (4200), `sqlserver` (1433), `ollama` (opcional), `jaeger` (opcional).
+2. Suba o ambiente. Por enquanto só o SQL Server está ativo:
+
+```bash
+docker compose -f docker/docker-compose.yml --env-file .env up -d
+```
+
+3. Quando a API, o worker e o Angular existirem, suba tudo com o perfil `app`:
+
+```bash
+docker compose -f docker/docker-compose.yml --env-file .env --profile app up --build
+```
+
+Serviços: `sqlserver` (1433), `api` (8080), `worker`, `web` (4200). Opcionais: `--profile ollama` (modelo local) e `--profile observabilidade` (Jaeger, interface em 16686).
 
 ## Roadmap
 
-| Fase | Semana | Objetivo | Pronto quando |
-|------|--------|----------|---------------|
-| 0 | 1 | Fundação (solução, compose, CI, login JWT) | Dono faz login e pipeline fica verde |
-| 1 | 2 | Dados estruturados (produtos, horários, exceções) | Responde preço e horário sem IA |
-| 2 | 3 | Ingestão (upload, extração, trechos, embeddings) | Um comando popula a loja fictícia |
-| 3 | 4 | Busca e resposta (roteador, RAG, validador, recusa) | Produto inexistente → "não encontrei" |
-| 4 | 5 | Avaliação e observabilidade | Nota antes/depois e armadilhas passam |
-| 5 | 6 | Telas em Angular | Fluxo completo sem Swagger |
-| 6 | 7 | Acabamento e demo | Link da demo funcional |
+| Fase | Semana | Objetivo | Pronto quando | Status |
+|------|--------|----------|---------------|--------|
+| 0 | 1 | Fundação (solução, compose, CI, login JWT) | Dono faz login e pipeline fica verde | 🚧 solução e Docker prontos; faltam CI e login |
+| 1 | 2 | Dados estruturados (produtos, horários, exceções) | Responde preço e horário sem IA | ⏳ |
+| 2 | 3 | Ingestão (upload, extração, trechos, embeddings) | Um comando popula a loja fictícia | ⏳ |
+| 3 | 4 | Busca e resposta (roteador, RAG, validador, recusa) | Produto inexistente → "não encontrei" | ⏳ |
+| 4 | 5 | Avaliação e observabilidade | Nota antes/depois e armadilhas passam | ⏳ |
+| 5 | 6 | Telas em Angular | Fluxo completo sem Swagger | ⏳ |
+| 6 | 7 | Acabamento e demo | Link da demo funcional | ⏳ |
 
 Se o tempo apertar, pare na fase 4.
 
