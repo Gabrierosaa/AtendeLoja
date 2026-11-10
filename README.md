@@ -1,5 +1,7 @@
 # AtendeLoja
 
+[![CI](https://github.com/Gabrierosaa/AtendeLoja/actions/workflows/ci.yml/badge.svg)](https://github.com/Gabrierosaa/AtendeLoja/actions/workflows/ci.yml)
+
 Assistente de atendimento para comércios locais. Responde clientes sobre horários, preços e políticas da loja usando **somente os dados que o dono cadastrou** e **recusa** quando não tem base.
 
 Projeto de aprendizado e portfólio, com foco em um RAG que se avalia e se observa.
@@ -201,7 +203,9 @@ Se o tempo apertar, pare na fase 4.
 
 ## Decisões em aberto
 
-A01 provedor de IA · A02 modelo de embeddings · A03 tamanho de trecho/k/limiar · A04 Controllers vs Minimal APIs · A05 hospedagem da demo · A06 retenção das perguntas.
+A02 modelo de embeddings · A03 tamanho de trecho/k/limiar · A04 Controllers vs Minimal APIs · A05 hospedagem da demo · A06 retenção das perguntas.
+
+Resolvidas: A01 (Ollama em dev), registrada em [`docs/decisoes.md`](docs/decisoes.md).
 
 ## Stack
 
