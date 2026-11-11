@@ -1,6 +1,5 @@
 ﻿using Atende.Domain.Exceptions;
 
-
 namespace Atende.Domain.Entidades
 {
     public class Usuario
