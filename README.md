@@ -199,6 +199,16 @@ dotnet ef database update --project src/Atende.Infrastructure
 ASPNETCORE_URLS=http://localhost:5080 dotnet run --project src/Atende.Api --no-launch-profile
 ```
 
+> **Visual Studio / F5:** a IDE não carrega o `.env`. Guarde a connection string no user-secrets (fica fora do Git) e rode com o perfil padrão:
+>
+> ```bash
+> dotnet user-secrets set "ConnectionStrings:Padrao" "Server=localhost,1433;Database=AtendeLoja;User Id=sa;Password=<SQLSERVER_SA_PASSWORD>;TrustServerCertificate=True" --project src/Atende.Api
+> ```
+>
+> Alternativa sem user-secrets: crie `src/Atende.Api/appsettings.Local.json` (ignorado pelo Git) com `{ "ConnectionStrings": { "Padrao": "..." } }`.
+>
+> Nesse caso a API sobe em `http://localhost:47123` (veja `launchSettings.json`); troque `5080` por `47123` nos `curl`.
+
 Em outro terminal, teste `POST /api/v1/auth/registro`. A resposta nunca traz a senha nem o hash.
 
 **201 – cadastro válido** (slug gerado: `padaria-do-ze`):
