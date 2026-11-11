@@ -24,7 +24,7 @@ builder.Services.AddRateLimiter(o =>
         ctx.Connection.RemoteIpAddress?.ToString() ?? "desconhecido",
         _ => new FixedWindowRateLimiterOptions
         {
-            PermitLimit = 5,
+            PermitLimit = builder.Configuration.GetValue("RateLimit:Registro:Limite", 5),
             Window = TimeSpan.FromMinutes(1),
         }));
 });
