@@ -122,6 +122,7 @@ Estados do `Documento`: `Enviado → Processando → Pronto | Falhou` (falha tem
 
 | Método | Rota | Acesso |
 |--------|------|--------|
+| POST | `/auth/registro` | Público (rate limit: 5/min por IP) |
 | POST | `/auth/login` | Público |
 | GET/POST | `/produtos` | JWT |
 | PUT/DELETE | `/produtos/{id}` | JWT |
@@ -186,6 +187,86 @@ docker compose -f docker/docker-compose.yml --env-file .env --profile app up --b
 ```
 
 Serviços: `sqlserver` (1433), `api` (8080), `worker`, `web` (4200). Opcionais: `--profile ollama` (modelo local) e `--profile observabilidade` (Jaeger, interface em 16686).
+
+### Rodando a API localmente e testando o cadastro
+
+Com o SQL Server do passo 2 no ar, aplique a migração e suba a API (a partir da raiz, em Git Bash/Linux/macOS):
+
+```bash
+set -a && . ./.env && set +a
+export ConnectionStrings__Padrao="Server=localhost,1433;Database=AtendeLoja;User Id=sa;Password=${SQLSERVER_SA_PASSWORD};TrustServerCertificate=True"
+dotnet ef database update --project src/Atende.Infrastructure
+ASPNETCORE_URLS=http://localhost:5080 dotnet run --project src/Atende.Api --no-launch-profile
+```
+
+> **Visual Studio / F5:** a IDE não carrega o `.env`. Guarde a connection string no user-secrets (fica fora do Git) e rode com o perfil padrão:
+>
+> ```bash
+> dotnet user-secrets set "ConnectionStrings:Padrao" "Server=localhost,1433;Database=AtendeLoja;User Id=sa;Password=<SQLSERVER_SA_PASSWORD>;TrustServerCertificate=True" --project src/Atende.Api
+> ```
+>
+> Alternativa sem user-secrets: crie `src/Atende.Api/appsettings.Local.json` (ignorado pelo Git) com `{ "ConnectionStrings": { "Padrao": "..." } }`.
+>
+> Nesse caso a API sobe em `http://localhost:47123` (veja `launchSettings.json`); troque `5080` por `47123` nos `curl`.
+
+Em outro terminal, teste `POST /api/v1/auth/registro`. A resposta nunca traz a senha nem o hash.
+
+**201 – cadastro válido** (slug gerado: `padaria-do-ze`):
+
+```bash
+curl -i -X POST http://localhost:5080/api/v1/auth/registro \
+  -H "Content-Type: application/json" \
+  --data-binary '{"nome":"Padaria do Ze","email":"ze@exemplo.com","senha":"senha-segura-123"}'
+```
+
+**409 – slug repetido** (rode o comando acima de novo com outro e-mail):
+
+```bash
+curl -i -X POST http://localhost:5080/api/v1/auth/registro \
+  -H "Content-Type: application/json" \
+  --data-binary '{"nome":"Padaria do Ze","email":"outro@exemplo.com","senha":"senha-segura-123"}'
+```
+
+**409 – e-mail repetido** (mesmo e-mail do primeiro, nome diferente; maiúsculas não importam):
+
+```bash
+curl -i -X POST http://localhost:5080/api/v1/auth/registro \
+  -H "Content-Type: application/json" \
+  --data-binary '{"nome":"Confeitaria da Ana","email":"ZE@exemplo.com","senha":"senha-segura-123"}'
+```
+
+**400 – senha fraca** (menos de 8 caracteres; a resposta lista os erros por campo):
+
+```bash
+curl -i -X POST http://localhost:5080/api/v1/auth/registro \
+  -H "Content-Type: application/json" \
+  --data-binary '{"nome":"Loja Nova","email":"nova@exemplo.com","senha":"123"}'
+```
+
+**400 – fuso inexistente:**
+
+```bash
+curl -i -X POST http://localhost:5080/api/v1/auth/registro \
+  -H "Content-Type: application/json" \
+  --data-binary '{"nome":"Loja Fuso","email":"fuso@exemplo.com","senha":"senha-segura-123","fusoHorario":"Marte/Olympus"}'
+```
+
+**429 – rate limit** (a 6ª chamada no mesmo minuto é recusada):
+
+```bash
+for i in 1 2 3 4 5 6 7; do curl -s -o /dev/null -w "%{http_code} " -X POST http://localhost:5080/api/v1/auth/registro -H "Content-Type: application/json" --data-binary '{}'; done
+```
+
+> **Windows/Git Bash e acentos:** o `curl` do Git Bash envia mal caracteres não ASCII passados direto na linha de comando (o JSON chega inválido e a API responde 400). Use nomes sem acento, como acima, ou mande o corpo pela entrada padrão:
+>
+> ```bash
+> printf '%s' '{"nome":"Padaria do Zé","email":"ze@exemplo.com","senha":"senha-segura-123"}' \
+>   | curl -i -X POST http://localhost:5080/api/v1/auth/registro -H "Content-Type: application/json" --data-binary @-
+> ```
+>
+> No PowerShell, use `curl.exe` (não o alias `curl`, que é o `Invoke-WebRequest`).
+
+Para refazer os testes do zero, apague as linhas de teste (ou recrie o banco com `docker compose ... down -v`).
 
 ## Roadmap
 

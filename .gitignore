@@ -13,4 +13,6 @@ web/dist/
 web/.angular/
 TestResults/
 *.log
-/src/Atende.Api
+
+# Configuração local de desenvolvimento (contém senha)
+appsettings.Local.json
