@@ -13,3 +13,6 @@ web/dist/
 web/.angular/
 TestResults/
 *.log
+
+# Configuração local de desenvolvimento (contém senha)
+appsettings.Local.json
