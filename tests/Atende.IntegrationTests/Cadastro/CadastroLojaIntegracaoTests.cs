@@ -116,6 +116,30 @@ public class CadastroLojaIntegracaoTests : IDisposable
     }
 
     [Fact]
+    public async Task Requisicao_invalida_retorna_400_em_problem_details_com_errors()
+    {
+        var resposta = await Registrar("", "email-invalido", "1234567");
+
+        Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+        Assert.Equal("application/problem+json", resposta.Content.Headers.ContentType?.MediaType);
+
+        using var json = JsonDocument.Parse(await resposta.Content.ReadAsStringAsync());
+        var raiz = json.RootElement;
+
+        Assert.Equal(400, raiz.GetProperty("status").GetInt32());
+        Assert.False(string.IsNullOrWhiteSpace(raiz.GetProperty("title").GetString()));
+
+        var errors = raiz.GetProperty("errors");
+        Assert.Equal(JsonValueKind.Object, errors.ValueKind);
+        Assert.True(errors.EnumerateObject().Any(), "'errors' veio vazio.");
+        foreach (var campo in errors.EnumerateObject())
+        {
+            Assert.Equal(JsonValueKind.Array, campo.Value.ValueKind);
+            Assert.All(campo.Value.EnumerateArray(), m => Assert.False(string.IsNullOrWhiteSpace(m.GetString())));
+        }
+    }
+
+    [Fact]
     public async Task Falha_ao_gravar_o_dono_desfaz_a_loja_rollback()
     {
         var emailExistente = EmailUnico();

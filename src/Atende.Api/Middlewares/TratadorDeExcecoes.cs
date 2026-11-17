@@ -1,11 +1,12 @@
+using System.Diagnostics;
 using Atende.Application.Excecoes;
+using Atende.Domain.Exceptions;
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Atende.Api.Middlewares
 {
-    /// <summary>Traduz exceções da aplicação para ProblemDetails (RFC 9457).</summary>
     public class TratadorDeExcecoes : IExceptionHandler
     {
         private readonly ILogger<TratadorDeExcecoes> _log;
@@ -14,6 +15,9 @@ namespace Atende.Api.Middlewares
 
         public async ValueTask<bool> TryHandleAsync(HttpContext ctx, Exception ex, CancellationToken ct)
         {
+            if (ex is OperationCanceledException && ct.IsCancellationRequested)
+                return true;
+
             ProblemDetails problema;
 
             switch (ex)
@@ -38,6 +42,24 @@ namespace Atende.Api.Middlewares
                     };
                     break;
 
+                case DomainException d:
+                    problema = new ProblemDetails
+                    {
+                        Status = StatusCodes.Status422UnprocessableEntity,
+                        Title = "Regra de negócio violada.",
+                        Detail = d.Message,
+                    };
+                    break;
+
+                case NaoEncontradoException n:
+                    problema = new ProblemDetails
+                    {
+                        Status = StatusCodes.Status404NotFound,
+                        Title = "Não encontrado.",
+                        Detail = n.Message,
+                    };
+                    break;
+
                 default:
                     _log.LogError(ex, "Erro não tratado");
                     problema = new ProblemDetails
@@ -47,6 +69,10 @@ namespace Atende.Api.Middlewares
                     };
                     break;
             }
+
+            problema.Type ??= $"https://httpstatuses.com/{problema.Status}";
+            problema.Instance = ctx.Request.Path;
+            problema.Extensions["traceId"] = Activity.Current?.Id ?? ctx.TraceIdentifier;
 
             ctx.Response.StatusCode = problema.Status!.Value;
             await ctx.Response.WriteAsJsonAsync(
